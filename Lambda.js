@@ -96,11 +96,11 @@ var Lambda = function() {
 		parse: parse,
 		eval: eval,
 		interpret: interpret,
-		load: function(file) {
+		load: function(file, cb) {
 			// read in and then interpret program
 			fs.readFile(__dirname + file, function(err, data) {
 				// TODO: types so that we know how to render, e.g., Number or Bool.
-				console.log(interpret(""+data).TWO(function(x){return x+1})(0));
+				cb(interpret(""+data));
 			});	
 		}
 	};	
