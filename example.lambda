@@ -1,0 +1,4 @@
+ZERO = λf->λn->n
+SUCC = λn->λf->λx->f(n f x)
+ONE = SUCC ZERO
+TWO = SUCC ONE
