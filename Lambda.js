@@ -26,6 +26,11 @@ var Lambda = function() {
 	};
 	var invocation_parse = function(expr) {
 		var chars = expr.split(''), parts = [], read, parens = 0, build = '';
+		if( chars[0] == '`' ) {	
+			// delay parsing of quoted expression
+			return ['`', expr.split(' ').slice(1).join(' ')];
+		}
+		
 		// parse nested parentheticals
 		while( (read = chars.shift()) ) {
 			if( read == '(' ) parens++;
@@ -41,6 +46,10 @@ var Lambda = function() {
 		if( build ) parts.push(build);
 		if( parts[0].match(/^\([\s\S]+\)$/) ) {
 			parts[0] = parse(parts[0].substr(1, parts[0].length - 2));
+		}
+		
+		if( parts.length == 1 ) {
+			return invocation_parse(expr.substr(1, expr.length - 2));
 		}
 		return invocation_recursive_parse(parts[0], parts.slice(1));
 	};
@@ -101,7 +110,12 @@ var Lambda = function() {
 		} else if( x[0] == 'lambda' ) {
 			// lambda definition
 			value = function() { return eval(x[2], Env(x[1], arguments, env)) };
-		} else {			
+		} else {	
+			if( x[0] == '`' ) {
+				// treat quoted expressions as lambdas of dropped values
+				return { env: env, value: eval(['lambda', '_', parse(x[1])], env) };
+			}
+
 			// function invocation			
 			var _env = {};
 			var exps = x.map(function(expr) {
@@ -133,8 +147,8 @@ var Lambda = function() {
 				return parse;
 			}.bind(this);
 			return _list;
-		},			
-		line: -7
+		},		
+		line: -8
 	};	
 	
 	var incr_line = function(resp) {
@@ -159,7 +173,8 @@ var Lambda = function() {
 			"SND = λp->p FALSE",
 			"NIL = λx->TRUE",
 			"KILL = λx->λy->FALSE",
-			"NULL = λp->p KILL"
+			"NULL = λp->p KILL",
+			", = λf->f NIL"
 		];
 		// reverse so that the first written is the most deeply nested
 		var exprs = prelude.concat(program.split('\n')).reverse();
