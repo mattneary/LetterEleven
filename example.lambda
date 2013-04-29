@@ -1,4 +1,10 @@
 ZERO = λf->λn->n
-SUCC = λn->λf->λx->f(n f x)
+SUCC = λn->λf->λx->f (n f x)
 ONE = SUCC ZERO
 TWO = SUCC ONE
+
+NUMS = PAIR ZERO (PAIR ONE (PAIR TWO NIL))
+LIST NUM NUMS
+
+MAP = λF->λL->(NULL L) NIL (PAIR (F (FST L)) (MAP F (SND L)))
+LIST NUM (MAP SUCC NUMS)

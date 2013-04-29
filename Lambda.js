@@ -1,3 +1,11 @@
+// node and client-side compatibility
+try {
+	require; module;
+} catch(err) {
+	require = function(){};
+	module = { exports: [] };
+}
+
 var fs = require('fs');
 var Lambda = function() {
 	var identity = function(x) {
@@ -17,7 +25,23 @@ var Lambda = function() {
 		return arguments.length > 0 ? invocation_recursive_parse(application, arguments) : application;
 	};
 	var invocation_parse = function(expr) {
-		var parts = expr.match(/\([\S\s]+\)|[^)(\s]+/g);
+		var chars = expr.split(''), parts = [], read, parens = 0, build = '';
+		// parse nested parentheticals
+		while( (read = chars.shift()) ) {
+			if( read == '(' ) parens++;
+			else if( read == ')' ) parens--;
+			
+			if( read.match(/\s/) && parens == 0 ) {
+				parts.push(build);
+				build = '';
+			} else {
+				build += read;
+			}
+		};
+		if( build ) parts.push(build);
+		if( parts[0].match(/^\([\s\S]+\)$/) ) {
+			parts[0] = parse(parts[0].substr(1, parts[0].length - 2));
+		}
 		return invocation_recursive_parse(parts[0], parts.slice(1));
 	};
 	var parse = function(expr) {
@@ -25,13 +49,13 @@ var Lambda = function() {
 			expr := <lambda><var> -> <expr>
 					| <var> = <expr>
 					| <expr> <expr>
-					| (<expr> <expr>)
+					| (<expr>)
 					| <var>							
-		*/
+		*/		
 		var rules = [
 			[/^[^=]+=[^=]+$/, equation_parse],
-			[/^[^-]+->[\S\s]+$/, lambda_parse],
-			[/^[\S]+ [\S\s]+$/, invocation_parse],
+			[/^[^-)(]+->[\S\s]+$/, lambda_parse],
+			[/^([\S]+|\([^)]+\)) [\S\s]+$/, invocation_parse],
 			[/^/, identity]
 		];
 		
@@ -51,44 +75,94 @@ var Lambda = function() {
 		for( var key in env ) {
 			_env[key] = env[key];
 		}
-		_env[name] = eval(values[0], _env);
+		_env[name] = eval(values[0], _env).value;
 		return _env;
 	};
 	var eval = function(x, env) {
-		// sloppy handling of external data-types - for rendering
+		x = x.value == undefined ? x : x.value;
+	
+		// expose external data-types for use with the output functions
 		if( typeof x == 'function' ) {
-			return x;
+			return { env: env, value: x };
 		} else if( typeof x == 'number' ) {
-			return x;
+			return { env: env, value: x };
+		} else if( typeof x == 'boolean' ) {
+			return { env: env, value: x };
 		}
 		
+		var value;
 		if( typeof x == 'string' ) {
 			// variable references
-			return env[x];
+			value =  env[x];
 		} else if( x[0] == '=' ) {
 			// variable assignment
-			env[x[1]] = eval(x[2], env);
+			env[x[1]] = eval(x[2], env).value;
+			value = env[x[1]];
 		} else if( x[0] == 'lambda' ) {
 			// lambda definition
-			return function() { return eval(x[2], Env(x[1], arguments, env)) };
-		} else {
-			// function invocation
-			var exps = x.map(function(expr) { return eval(expr, env); });
-			return exps.shift().apply({}, exps);
+			value = function() { return eval(x[2], Env(x[1], arguments, env)) };
+		} else {			
+			// function invocation			
+			var _env = {};
+			var exps = x.map(function(expr) {
+				var evaled = eval(expr, env);
+				return evaled.value == undefined ? evaled : (_env = evaled.env, evaled.value); 
+			});
+			var applied = exps.shift().apply(_env, exps);
+			return { env: env, value: applied && applied.value != undefined ? applied.value : applied };
 		}
-		return env;
+		return { env: env, value: value };
+	};
+	
+	var log = [];
+	var library = {
+		// provide output functions of Booleans, Numbers, and Lists of either type.
+		BOOL: function(bool, nested) {
+			var parse = bool(true).value(false).value;
+			if(!nested) log.push('line '+this.line+": "+parse);
+			return parse;
+		},
+		NUM: function(num, nested) {
+			if(!nested) log.push('line '+this.line+": "+num(function(x){return x+1;}).value(0).value);
+			return num(function(x){return x+1;}).value(0);
+		},
+		LIST: function(type_parser) {
+			var _list = function(list, nested) {
+				var parse = this.BOOL(this.NULL(list).value, true) ? [] : [type_parser(this.FST(list).value, true).value, _list(this.SND(list), true)];
+				if(!nested) log.push('line '+this.line+": "+JSON.stringify(parse));
+				return parse;
+			}.bind(this);
+			return _list;
+		},			
+		line: -7
+	};	
+	
+	var incr_line = function(resp) {
+		resp.env.line = (resp.env.line || 0) + 1;
+		return resp;
 	};
 	
 	// evaluate subsequent expressions with modified env
 	var interpret_dependency_chain = function(exprs) {
 		var parsed = parse(exprs.shift());
-		return exprs.length == 0 ? eval(parsed, {}) : eval(parsed, interpret_dependency_chain(exprs));
+		return exprs.length == 0 ? eval(parsed, library) : eval(parsed, incr_line(interpret_dependency_chain(exprs)).env);
 	};
 	
 	// evaluate a multi-line program
 	var interpret = function(program) {
+		// provide functions for convenience
+		var prelude = [
+			"PAIR = λx->λy->λf->f x y",
+			"TRUE = λx->λy->x",
+			"FALSE = λx->λy->y",
+			"FST = λp->p TRUE",
+			"SND = λp->p FALSE",
+			"NIL = λx->TRUE",
+			"KILL = λx->λy->FALSE",
+			"NULL = λp->p KILL"
+		];
 		// reverse so that the first written is the most deeply nested
-		var exprs = program.split('\n').reverse();
+		var exprs = prelude.concat(program.split('\n')).reverse();
 		return interpret_dependency_chain(exprs);
 	};
 	
@@ -97,12 +171,14 @@ var Lambda = function() {
 		eval: eval,
 		interpret: interpret,
 		load: function(file, cb) {
+			var thiz = this;
 			// read in and then interpret program
 			fs.readFile(__dirname + file, function(err, data) {
 				// TODO: types so that we know how to render, e.g., Number or Bool.
-				cb(interpret(""+data));
-			});	
-		}
-	};	
+				cb.call(thiz, interpret(""+data));
+			});
+		},
+		log: log
+	};
 };
 module.exports = Lambda;

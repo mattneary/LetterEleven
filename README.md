@@ -9,7 +9,7 @@ The Lambda Calculus syntax is very simple. All expressions are of the following 
 	expr := <lambda><var> -> <expr>
 			| <var> = <expr>
 			| <expr> <expr>
-			| (<expr> <expr>)
+			| (<expr>)
 			| <var>	
 
 So the parsing process simply finds the pattern which a given expression matches and then decomposes the expression into variables, lambdas, or more expressions which in turn will be parsed.
