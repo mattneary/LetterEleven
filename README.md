@@ -20,5 +20,5 @@ Evaluation interprets each expression and generates its JavaScript form. An envi
 
 Roadmap
 =======
-- A typing system is needed for automatic rendering of Church Forms (e.g., numbers and booleans).
+- Lazy evaluation to allow for recursion.
 - The goal is to generalize this implementation to make general interpretation a lot less intimidating. Scheme, for example, would be very easily built on this foundation.
