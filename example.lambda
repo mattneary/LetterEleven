@@ -2,9 +2,29 @@ ZERO = λf->λn->n
 SUCC = λn->λf->λx->f (n f x)
 ONE = SUCC ZERO
 TWO = SUCC ONE
+ADD = λA->λB->A SUCC B
+NAUGHT = λf->λn->TRUE
+ISZERO = λn->n (λx->FALSE) TRUE
+ISNAUGHT = λA->A (λx->x) FALSE
++ = λA->λB->(ISNAUGHT B) A (+ (ADD A B))
+MULT = λA->λB->A (ADD B) ZERO
+TEN = MULT TWO (+ TWO TWO ONE NAUGHT)
+# = λA->λB->(ISNAUGHT B) A (# (ADD (MULT TEN A) B))
+{} = λA->PAIR A NIL
+
+NUM (# ONE ONE ONE NAUGHT)
 
 NUMS = PAIR ZERO (PAIR ONE (PAIR TWO NIL))
 LIST NUM NUMS
 
 MAP = λF->λL->, ((NULL L) (` NIL) (` PAIR (F (FST L)) (MAP F (SND L))))
-LIST NUM (MAP SUCC NUMS)
+REDUCE = λF->λA->λL->, ((NULL L) (` A) (` REDUCE F (F A (FST L)) (SND L)))
+
+NUM (REDUCE ADD ZERO (MAP SUCC NUMS))
+
+desingle = λL->MAP FST L
+PUSH = λL->λX->, ((NULL (SND L)) (` PAIR (FST L) (PAIR X NIL)) (` PAIR (FST L) (PUSH (SND L) X)))
+LIST NUM (PUSH NUMS ZERO)
+
+list = λA->λB->(NULL B) A (list (PUSH A (FST B)))
+LIST NUM (list ({} ZERO) ({} ONE) NIL)

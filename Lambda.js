@@ -138,11 +138,11 @@ var Lambda = function() {
 		},
 		NUM: function(num, nested) {
 			if(!nested) log.push('line '+this.line+": "+num(function(x){return x+1;}).value(0).value);
-			return num(function(x){return x+1;}).value(0);
+			return num(function(x){return x+1;}).value(0).value;
 		},
-		LIST: function(type_parser) {
+		LIST: function(type_parser) {		
 			var _list = function(list, nested) {
-				var parse = this.BOOL(this.NULL(list).value, true) ? [] : [type_parser(this.FST(list).value, true).value, _list(this.SND(list), true)];
+				var parse = this.BOOL(this.NULL(list).value, true) ? [] : [type_parser(this.FST(list).value, true), _list(this.SND(list), true)];
 				if(!nested) log.push('line '+this.line+": "+JSON.stringify(parse));
 				return parse;
 			}.bind(this);
@@ -189,7 +189,6 @@ var Lambda = function() {
 			var thiz = this;
 			// read in and then interpret program
 			fs.readFile(__dirname + file, function(err, data) {
-				// TODO: types so that we know how to render, e.g., Number or Bool.
 				cb.call(thiz, interpret(""+data));
 			});
 		},
