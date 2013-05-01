@@ -1,30 +1,61 @@
-ZERO = λf->λn->n
+` PRELUDE
+PAIR = λx->λy->λf->f x y
+TRUE = λx->λy->x
+FALSE = λx->λy->y
+FST = λp->p TRUE
+SND = λp->p FALSE
+NIL = λx->TRUE
+NULL = λp->p (λx->λy->FALSE)
+, = λf->f NIL
+
+` NUMERALS
+0 = λf->λn->n
 SUCC = λn->λf->λx->f (n f x)
-ONE = SUCC ZERO
-TWO = SUCC ONE
+1 = SUCC 0
+2 = SUCC 1
+3 = SUCC 2
+4 = SUCC 3
+5 = SUCC 4
+6 = SUCC 5
+7 = SUCC 6
+8 = SUCC 7
+9 = SUCC 8
+10 = SUCC 9
+
+` POLYMORPHISM (SINGLETON CONVERSION)
+* = λA->PAIR A NIL
+& = FST
+
+` HIGHER ORDER
+.* = λX->λF->(NULL F) X (.* ((& F) X))
+apply = λF->λL->, ((NULL L) (` F) (` apply (F (FST L)) (SND L)))
+
+` ARITHMETIC (LEFT POLYMORPHIC TO ALLOW FOR USE OF NIL)
 ADD = λA->λB->A SUCC B
++* = λA->λB->(NULL B) (& A) (+* (* (ADD (& A) (& B))))
+MULT = λA->λB->A (ADD B) 0
+#* = λA->λB->(NULL B) (& A) (.* (ADD (MULT 10 (& A)) (& B)) (* *) (* #*) NIL)
+
+` MONOMORPHIC NUMBER CASE (USE NAUGHT AS DELIMITER)
 NAUGHT = λf->λn->TRUE
-ISZERO = λn->n (λx->FALSE) TRUE
-ISNAUGHT = λA->A (λx->x) FALSE
-+ = λA->λB->(ISNAUGHT B) A (+ (ADD A B))
-MULT = λA->λB->A (ADD B) ZERO
-TEN = MULT TWO (+ TWO TWO ONE NAUGHT)
-# = λA->λB->(ISNAUGHT B) A (# (ADD (MULT TEN A) B))
-{} = λA->PAIR A NIL
+ISNAUGHT = λn->n (λx->x) FALSE
+Z = λF->λX->(ISNAUGHT X) (F NIL) (Z (F (* X)))
++ = Z +*
+# = Z #*
 
-NUM (# ONE ONE ONE NAUGHT)
-
-NUMS = PAIR ZERO (PAIR ONE (PAIR TWO NIL))
-LIST NUM NUMS
-
+` LISTS
+PUSH = λL->λX->, ((NULL (SND L)) (` PAIR (FST L) (PAIR X NIL)) (` PAIR (FST L) (PUSH (SND L) X)))
+CONS* = λA->λB->(NULL B) A (CONS* (PUSH A (& B)))
 MAP = λF->λL->, ((NULL L) (` NIL) (` PAIR (F (FST L)) (MAP F (SND L))))
 REDUCE = λF->λA->λL->, ((NULL L) (` A) (` REDUCE F (F A (FST L)) (SND L)))
+CONCAT = λA->λB->, ((NULL B) (` A) (` CONCAT (PUSH A (FST B)) (SND B)))
 
-NUM (REDUCE ADD ZERO (MAP SUCC NUMS))
-
-desingle = λL->MAP FST L
-PUSH = λL->λX->, ((NULL (SND L)) (` PAIR (FST L) (PAIR X NIL)) (` PAIR (FST L) (PUSH (SND L) X)))
-LIST NUM (PUSH NUMS ZERO)
-
-list = λA->λB->(NULL B) A (list (PUSH A (FST B)))
-LIST NUM (list ({} ZERO) ({} ONE) NIL)
+` TESTS
+NUMS = CONS* (* 1) (* 2) (* 1) NIL
+LIST NUM NUMS
+NUM (+* (* 1) (* 1) NIL)
+NUM (# 1 1 1 NAUGHT)
+NUM (+ 1 1 NAUGHT)
+NUM (apply ADD (Z CONS* 2 2 NAUGHT))
+LIST NUM (CONCAT NUMS NUMS)
+LIST CHAR (Z CONS* (# 9 7 NAUGHT) (# 9 8 NAUGHT) (# 9 9 NAUGHT) NAUGHT)

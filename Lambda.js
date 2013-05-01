@@ -140,6 +140,11 @@ var Lambda = function() {
 			if(!nested) log.push('line '+this.line+": "+num(function(x){return x+1;}).value(0).value);
 			return num(function(x){return x+1;}).value(0).value;
 		},
+		CHAR: function(num, nested) {
+			var code = num(function(x){return x+1;}).value(0).value;			
+			if(!nested) log.push('line '+this.line+": "+String.fromCharCode(code));
+			return String.fromCharCode(code);
+		},
 		LIST: function(type_parser) {		
 			var _list = function(list, nested) {
 				var parse = this.BOOL(this.NULL(list).value, true) ? [] : [type_parser(this.FST(list).value, true), _list(this.SND(list), true)];
